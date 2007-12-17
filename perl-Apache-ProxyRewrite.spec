@@ -12,7 +12,6 @@ Patch0:		Apache-ProxyRewrite-mpb.diff
 Patch1:		Apache-ProxyRewrite-0.17-mod_perl2.diff
 BuildRequires:	perl-devel
 BuildArch:	noarch
-BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-buildroot
 
 %description
 Apache::ProxyRewrite acts as a reverse-proxy that will rewrite
