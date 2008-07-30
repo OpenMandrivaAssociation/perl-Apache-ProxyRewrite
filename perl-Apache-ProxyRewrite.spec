@@ -3,7 +3,7 @@
 Summary:	Apache::ProxyRewrite - mod_perl URL-rewriting proxy
 Name:		perl-%{module}
 Version:	0.17
-Release:	%mkrel 5
+Release:	%mkrel 7
 License:	GPL or Artistic
 Group:		Development/Perl
 URL:		http://search.cpan.org/dist/%{module}
