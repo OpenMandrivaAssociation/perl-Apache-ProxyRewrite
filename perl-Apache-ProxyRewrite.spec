@@ -3,7 +3,7 @@
 
 Name:       perl-%{upstream_name}
 Version:    %perl_convert_version %{upstream_version}
-Release:    %mkrel 1
+Release:    %mkrel 2
 
 Summary:	Apache::ProxyRewrite - mod_perl URL-rewriting proxy
 License:	GPL+ or Artistic
