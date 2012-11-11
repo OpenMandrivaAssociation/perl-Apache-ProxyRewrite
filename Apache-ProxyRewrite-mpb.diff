@@ -1,0 +1,291 @@
+diff -Naur Apache-ProxyRewrite-0.17/ChangeLog Apache-ProxyRewrite-0.17.oden/ChangeLog
+--- Apache-ProxyRewrite-0.17/ChangeLog	2002-01-16 16:49:45.000000000 +0100
++++ Apache-ProxyRewrite-0.17.oden/ChangeLog	2004-08-26 00:25:48.378948425 +0200
+@@ -1,3 +1,11 @@
++2003-03-11  Max Baker <max@warped.org>
++    o  Added Passable arguments to handler() to allow for 
++       chained use of module from another mod_perl handler.
++    o  Added check for badly formed comments <-- bad comment>
++    o  Added options for url/location/scheme overrides
++    o  Added option for no passing of headers
++    o  Added option for local 404 error messages
++
+ 2002-01-16	Christian Gilmore <cag@us.ibm.com>
+ 	o  Corrected bug with relative redirects. Bug reported by Shail.
+ 	o  Made release 0.17.
+diff -Naur Apache-ProxyRewrite-0.17/ProxyRewrite.pm Apache-ProxyRewrite-0.17.oden/ProxyRewrite.pm
+--- Apache-ProxyRewrite-0.17/ProxyRewrite.pm	2002-01-16 16:49:51.000000000 +0100
++++ Apache-ProxyRewrite-0.17.oden/ProxyRewrite.pm	2004-08-26 00:25:48.380948483 +0200
+@@ -325,15 +325,23 @@
+ ###############################################################################
+ ###############################################################################
+ sub handler {
+-  my $r = shift;
++  my ($r,$args) = @_;
++
++  $args = (defined $args and ref($args) eq 'HASH') ? $args : {};
++
+   my %mappings = ();
+-  my ($auth_info, $auth_redirect, $remote_location) = undef;
++  my ($auth_info, $auth_redirect, $remote_location, $proxy_to,$location,$return_status) = undef;
++
++  # Argument Parsing
++  %mappings      = %$args->{ProxyRewrite} || split(/\s*(?:=>|,)\s*/, $r->dir_config('ProxyRewrite'));
++  $auth_info     = $args->{ProxyAuthInfo} || $r->dir_config('ProxyAuthInfo');
++  $auth_redirect = $args->{ProxyAuthRedirect} || $r->dir_config('ProxyAuthRedirect') || 'Off';
++  $proxy_to      = $args->{ProxyTo} || $r->dir_config('ProxyTo');
++  $location      = $args->{location} || $r->location;
++  $return_status = $args->{ReturnStatus} || $r->dir_config('ReturnStatus');
+ 
+-  %mappings = split(/\s*(?:=>|,)\s*/, $r->dir_config('ProxyRewrite'));
+-  $auth_info = $r->dir_config('ProxyAuthInfo');
+-  $auth_redirect = $r->dir_config('ProxyAuthRedirect') || 'Off';
+-  if ($r->dir_config('ProxyTo')) {
+-    $remote_location = $r->dir_config('ProxyTo');
++  if ($proxy_to){
++    $remote_location = $proxy_to;
+   } else {
+     $r->log->error("ProxyRewrite::handler: ProxyTo directive must be defined");
+     return DECLINED;
+@@ -344,11 +352,11 @@
+   $remote_location =~ m!^([^:]+://[^/]+)(/?.*)!;
+   my $remote_site = $1;
+   if ($2) {
+-    $mappings{$2} = $r->location;
+-  } elsif ($r->location eq '/') {
+-    $mappings{'/'} = $r->location;
++    $mappings{$2} = $location;
++  } elsif ($location eq '/') {
++    $mappings{'/'} = $location;
+   } else {
+-    $mappings{'/'} = $r->location . '/';
++    $mappings{'/'} = $location . '/';
+   }
+ 
+   $r->log->debug("handler: Remote Site - $remote_site");
+@@ -371,7 +379,7 @@
+   $r->log->info("ProxyRewrite: Preparing to fetch ", $r->uri,
+ 		" at time ", time);
+   my $response = &fetch($r, $remote_location, $remote_site,
+-			$auth_info, \%mappings);
++			$auth_info, \%mappings, $args);
+ 
+   # rewrite response URIs as needed
+   $r->log->info("ProxyRewrite: Preparing to rewrite URIs for ", $r->uri,
+@@ -383,10 +391,16 @@
+   # respond to client
+   $r->log->info("ProxyRewrite: Preparing to respond for ", $r->uri,
+ 		" at time ", time);
+-  &respond($r, $remote_site, $remote_location, $auth_redirect,
+-	   $response, \%mappings);
++  my $rv = &respond($r, $remote_site, $remote_location, $auth_redirect,
++	   $response, \%mappings, $args);
+ 
+-  return OK;
++  # For chained handler, return the request status
++  if (defined $return_status and $return_status) {
++    $r->log->debug("Returning $rv");
++    return $rv;
++  } else {
++    return OK;
++  }
+ }
+ 
+ ###############################################################################
+@@ -395,16 +409,17 @@
+ ###############################################################################
+ ###############################################################################
+ sub fetch {
+-  my ($r, $remote_location, $remote_site, $auth_info, $mapref) = @_;
++  my ($r, $remote_location, $remote_site, $auth_info, $mapref, $handler_args) = @_;
+   my $client_agent = '';
+   my $my_uri = '';
+   my ($k, $v);
+-  my $base = $r->location();
++  my $base = $handler_args->{location} || $r->location();
+   my $args = $r->args();
+   if ($base ne '/') {
+-    ($my_uri = $r->uri) =~ s/^$base//;
++    $my_uri = $handler_args->{uri} || $r->uri ;
++    $my_uri =~ s/^$base//;
+   } else {
+-    $my_uri = $r->uri;
++    $my_uri = $handler_args->{uri} || $r->uri;
+   }
+   $my_uri = $remote_location . $my_uri;
+   $my_uri .= '?' . $r->args() if $args;
+@@ -488,6 +503,13 @@
+     # to deal with it.
+     if (substr($buf, $lessthanpos + 1, 3) eq '!--') {
+       $greaterthanpos = index($buf, "-->", $lessthanpos);
++
++      # Some broken comments out there don't have the end
++      # --> so you look for the next > and call it a day.
++      # Most browsers do this as well.
++      if ($greaterthanpos == -1) {
++        $greaterthanpos = index($buf, ">", $lessthanpos);
++      }
+       $iscomment = 1;
+     } else {
+       $greaterthanpos = index($buf, ">", $lessthanpos);
+@@ -654,11 +676,17 @@
+ ###############################################################################
+ sub respond {
+   my ($r, $remote_site, $remote_location, $auth_redirect,
+-      $response, $mapref) = @_;
+-  my $parsed_uri = Apache::URI->parse($r);
++      $response, $mapref, $args) = @_;
+ 
+-  $r->log->debug("respond: URI: ", $r->uri);
+-  $r->log->debug("respond: Parsed hostinfo: ", $parsed_uri->hostinfo());
++  my $uri            = $args->{uri} || $r->uri;
++  my $local_error    = $args->{LocalError} || $r->dir_config('LocalError') || 0;
++  my $no_send_header = $args->{NoHeaders} || $r->dir_config('NoHeaders') || 0;
++  my $parsed_uri     = Apache::URI->parse($r);
++  my $scheme         = $args->{scheme} || $r->dir_config('scheme') || $parsed_uri->scheme;
++  my $hostinfo       = $args->{hostinfo} || $r->dir_config('hostinfo') || $parsed_uri->hostinfo;
++
++  $r->log->debug("respond: URI: ", $uri);
++  $r->log->debug("respond: hostinfo: ", $hostinfo);
+ 
+   # feed reponse back into our request_record
+   $response->scan(sub {
+@@ -679,7 +707,7 @@
+ 		    } elsif ($header =~/^Client-Peer/i) {
+ 		      my $local_addr = $r->connection->local_addr;
+ 		      my ($port, $ip) =
+-			Socket::unpack_sockaddr_in($local_addr);
++                Socket::unpack_sockaddr_in($local_addr);
+ 		      $ip = Socket::inet_ntoa($ip);
+ 		      $value = "$ip:$port";
+ 		    }
+@@ -697,13 +725,11 @@
+     # Only modify location if rewritten URL is relative
+     unless ($location =~ m!://!) {
+       if ($location =~ m!^/!) {
+-	$location = $parsed_uri->scheme . '://' . $parsed_uri->hostinfo .
+-	  $location;
++        $location = $scheme . '://' . $hostinfo .  $location;
+       } else {
+-	my $base = $r->uri;
+-	$base =~ s!(/)[^/]+$!$1!;
+-	$location = $parsed_uri->scheme . '://' . $parsed_uri->hostinfo .
+-	  $base . $location;
++        my $base = $uri;
++        $base =~ s#(/)[^/]+$#$1#;
++        $location = $scheme . '://' . $hostinfo . $base . $location;
+       }
+     }
+     $r->log->debug("respond: Location: $location");
+@@ -715,9 +741,9 @@
+     my $base = $r->location();
+     my $location = '';
+     if ($base ne '/') {
+-      ($location = $r->uri) =~ s/^$base//;
++      ($location = $uri) =~ s/^$base//;
+     } else {
+-      $location = $r->uri;
++      $location = $uri;
+     }
+     $location = $remote_location . $location;
+     $r->status('302');
+@@ -727,6 +753,12 @@
+     $response->content(undef);
+   }
+ 
++  # 404 Not Found -- Give local response, not remote response
++  if ($r->status == 404 and $local_error) {
++    $r->log->debug("respond: 404 - Clearing content");
++    $response->content(undef);
++  }
++
+   if (length($response->content) != 0) {
+     $r->headers_out->{'Content-length'} = length($response->content);
+   } else {
+@@ -737,8 +769,10 @@
+   $r->log->debug("respond: Status: ", $r->status);
+   $r->log->debug("respond: Status Line: ", $r->status_line);
+ 
+-  $r->send_http_header();
++  $r->send_http_header() unless $no_send_header;
+   $r->print($response->content);
++
++  return $r->status;
+ }
+ 
+ 1;
+@@ -771,8 +805,25 @@
+  PerlSetVar   ProxyAuthInfo     "BASIC aGb2c3ewenQ6amF4szzmY3b="
+  PerlSetVar   ProxyAuthRedirect Off
+  PerlSetVar   ProxyRewrite      "http://www.tivoli.com/ => /"
++ PerlSetVar   LocalError        1
++
+  </Location>
+ 
++Called from another mod_perl handler :
++ Apache::ProxyRewrite($r, {
++                            'ProxyTo'           => 'https://www.tivoli.com/secure',
++                            'ProxyAuthInfo'     => 'BASIC aGb2c3ewenQ6amF4szzmY3b=',
++                            'ProxyAuthRedirect' => 'Off',
++                            'ProxyRewrite'      => 
++                                { 'http://www.tivoli.com/' => '/'  },
++                            'LocalError'        => 1,
++                            'NoHeaders'         => 1
++                            'uri'               => 'blah/blah.html',
++                            'location'          => '/blah/',
++                            'hostinfo'          => 'www.blah.com',
++                            'scheme'            => 'https'
++                          }
++                     );
+ =head1 DESCRIPTION
+ 
+ B<Apache::ProxyRewrite> acts as a reverse-proxy that will rewrite
+@@ -832,6 +883,48 @@
+   backslash as a continuation character if you find long lines a
+   pain to read.
+ 
++=item B<LocalError>
++
++Boolean value that controls if the error message for a 404 is passed
++through from the proxy, or if the local server's message is used.
++
++=item B<NoHeaders>
++
++Boolean.  For use when chaining this module with other mod_perl handlers,
++this will disable the sending of the headers.  Someone has to call
++$r->send_http_header() some time.
++
++=back
++
++=head2 Source URL Overrides
++
++These overrides let Apache::ProxyRewrite use supplied values, usually passed
++from another handler, instead of fetching the values from Apache.
++
++=over
++
++=item B<uri>
++
++This is the URL of the request, minus the arguments.
++
++C</proxied_dir/page.html>
++
++=item B<location>
++
++This is the root of the proxied service.
++
++C</proxied_dir>
++
++=item B<hostinfo>
++
++The full host name (with optional port)
++
++C<www.tivoli.com>
++
++=item B<scheme>
++
++http, https, ftp, gopher ...
++
+ =back
+ 
+ =head1 NOTES

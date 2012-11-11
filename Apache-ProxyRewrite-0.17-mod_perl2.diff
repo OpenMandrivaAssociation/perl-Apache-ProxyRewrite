@@ -1,0 +1,26 @@
+diff -Naur Apache-ProxyRewrite-0.17/Makefile.PL Apache-ProxyRewrite-0.17.oden/Makefile.PL
+--- Apache-ProxyRewrite-0.17/Makefile.PL	2001-03-02 22:09:18.000000000 +0100
++++ Apache-ProxyRewrite-0.17.oden/Makefile.PL	2006-01-27 13:17:22.000000000 +0100
+@@ -9,7 +9,7 @@
+    'NAME'         => 'Apache::ProxyRewrite',
+    'VERSION_FROM' => 'ProxyRewrite.pm',
+    'PREREQ_PM'    => { 'Apache'           => '1.24', 
+-		       'Apache::Log'      => '0',
++		       'Apache2::Log'      => '0',
+ 		       'LWP'              => '5.43', 
+ 		       'URI'              => '1.0' },
+    'dist'         => { 'COMPRESS' => 'gzip -9f', 'SUFFIX' => 'gz' },
+diff -Naur Apache-ProxyRewrite-0.17/ProxyRewrite.pm Apache-ProxyRewrite-0.17.oden/ProxyRewrite.pm
+--- Apache-ProxyRewrite-0.17/ProxyRewrite.pm	2006-01-27 13:18:10.000000000 +0100
++++ Apache-ProxyRewrite-0.17.oden/ProxyRewrite.pm	2006-01-27 13:17:32.000000000 +0100
+@@ -265,8 +265,8 @@
+ use strict;
+ use Apache;
+ use Apache::Constants qw(OK AUTH_REQUIRED DECLINED DONE);
+-use Apache::Log;
+-use Apache::URI;
++use Apache2::Log;
++use Apache2::URI;
+ use LWP::UserAgent;
+ use Socket;
+ use URI::Escape qw(uri_unescape);
