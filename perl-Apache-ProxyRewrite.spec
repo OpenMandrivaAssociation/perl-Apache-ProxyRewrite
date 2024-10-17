@@ -8,7 +8,7 @@ Release:	5
 Summary:	Apache::ProxyRewrite - mod_perl URL-rewriting proxy
 License:	GPL+ or Artistic
 Group:		Development/Perl
-Url:		http://search.cpan.org/dist/%{upstream_name}
+Url:		https://search.cpan.org/dist/%{upstream_name}
 Source0:	ftp://ftp.perl.org/pub/CPAN/modules/by-module/Apache/%{upstream_name}-%{upstream_version}.tar.bz2
 Patch0:		Apache-ProxyRewrite-mpb.diff
 Patch1:		Apache-ProxyRewrite-0.17-mod_perl2.diff
