@@ -13,6 +13,7 @@ Source0:	ftp://ftp.perl.org/pub/CPAN/modules/by-module/Apache/%{upstream_name}-%
 Patch0:		Apache-ProxyRewrite-mpb.diff
 Patch1:		Apache-ProxyRewrite-0.17-mod_perl2.diff
 
+BuildRequires:	make
 BuildRequires:	perl-devel
 BuildArch:	noarch
 
