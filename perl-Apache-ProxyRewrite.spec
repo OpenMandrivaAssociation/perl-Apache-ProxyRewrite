@@ -1,15 +1,13 @@
 %define upstream_name	 Apache-ProxyRewrite
-%define upstream_version 0.17
-
 Name:		perl-%{upstream_name}
-Version:	%{upstream_version}
-Release:	6
+Version:	0.17
+Release:	7
 
 Summary:	Apache::ProxyRewrite - mod_perl URL-rewriting proxy
 License:	GPL+ or Artistic
 Group:		Development/Perl
 Url:		https://metacpan.org/dist/Apache-ProxyRewrite
-Source0:	https://cpan.metacpan.org/authors/id/C/CG/CGILMORE/Apache-ProxyRewrite-%{upstream_version}.tar.gz
+Source0:	https://cpan.metacpan.org/authors/id/C/CG/CGILMORE/Apache-ProxyRewrite-%{version}.tar.gz
 Patch0:		Apache-ProxyRewrite-mpb.diff
 Patch1:		Apache-ProxyRewrite-0.17-mod_perl2.diff
 
@@ -27,7 +25,7 @@ discrete URLs to be presented as one service and to allow the
 proxy to do authentication on the client's behalf.
 
 %prep
-%setup -q -n %{upstream_name}-%{upstream_version}
+%setup -q -n %{upstream_name}-%{version}
 %patch0 -p1
 %patch1 -p1
 find . -type f -exec chmod 644 {} \;
@@ -52,9 +50,7 @@ perl Makefile.PL INSTALLDIRS=vendor
 
 * Wed Jul 29 2009 JÃ©rÃ´me Quelin <jquelin@mandriva.org> 0.170.0-1mdv2011.0
 + Revision: 402966
-- rebuild using %%perl_convert_version
-
-* Wed Jul 30 2008 Thierry Vignaud <tv@mandriva.org> 0.17-7mdv2009.0
+- rebuild using %0.17 Wed Jul 30 2008 Thierry Vignaud <tv@mandriva.org> 0.17-7mdv2009.0
 + Revision: 255277
 - rebuild
 
