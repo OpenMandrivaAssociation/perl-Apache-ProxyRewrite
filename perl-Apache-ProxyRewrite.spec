@@ -2,7 +2,7 @@
 %define upstream_version 0.17
 Name:		perl-%{upstream_name}
 Version:	0.17
-Release:	1
+Release:	2
 
 Summary:	Apache::ProxyRewrite - mod_perl URL-rewriting proxy
 License:	GPL+ or Artistic
